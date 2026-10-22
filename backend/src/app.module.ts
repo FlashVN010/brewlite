@@ -4,6 +4,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   // Đọc file backend/.env vào process.env (PORT, JWT_SECRET, DATABASE_URL...)
@@ -12,6 +13,7 @@ import { AppService } from './app.service';
     UsersModule,
     AuthModule,
   ],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), ProductsModule],
   controllers: [AppController],
   providers: [AppService],
 })
