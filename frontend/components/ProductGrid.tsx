@@ -24,7 +24,18 @@ export function ProductGrid() {
   };
 
   useEffect(() => {
-    fetchProducts();
+    const loadInitialProducts = async () => {
+      try {
+        const data = await getProducts();
+        setProducts(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Không thể tải menu');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadInitialProducts();
   }, []);
 
   // Loading state
