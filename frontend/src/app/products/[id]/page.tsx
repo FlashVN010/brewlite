@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { QuantityStepper } from '@/components/QuantityStepper';
 import { SizeSelector } from '@/components/SizeSelector';
@@ -13,7 +13,8 @@ import { Product } from '@/types/product';
 
 const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(price) + 'đ';
 
-export default function ProductDetailPage() {
+// 1. Tách logic chính ra một component con riêng để dùng useParams() bên trong Suspense
+function ProductDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const productId = Number(params.id);
@@ -27,6 +28,7 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (!isValidProductId) {
+      setLoading(false);
       return;
     }
 
@@ -47,7 +49,7 @@ export default function ProductDetailPage() {
     return calcLineTotal(product, size, toppings, quantity);
   }, [product, quantity, size, toppings]);
 
-  if (!isValidProductId) {
+  if (!isValidProductId || (!loading && !product)) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-10">
         <div className="max-w-3xl mx-auto bg-white rounded-xl p-6 text-center shadow-sm">
@@ -73,19 +75,6 @@ export default function ProductDetailPage() {
               <div className="h-4 bg-gray-200 rounded w-5/6" />
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="max-w-3xl mx-auto bg-white rounded-xl p-6 text-center shadow-sm">
-          <p className="text-lg font-semibold text-gray-900 mb-2">Sản phẩm không tồn tại</p>
-          <Link href="/" className="inline-flex mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
-            ← Quay lại menu
-          </Link>
         </div>
       </div>
     );
@@ -137,5 +126,14 @@ export default function ProductDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 2. Component chính của trang bọc trong Suspense theo đúng chuẩn Next.js
+export default function ProductDetailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Đang tải trang sản phẩm...</div>}>
+      <ProductDetailContent />
+    </Suspense>
   );
 }
