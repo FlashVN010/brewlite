@@ -25,7 +25,7 @@ export class OrdersService {
       orderBy: { createdAt: 'desc' },
       include: {
         items: {
-          include: { product: { select: { name: true } } },
+          include: { product: { select: { name: true, imageUrl: true } } },
         },
         payments: {
           select: {
@@ -45,6 +45,7 @@ export class OrdersService {
       items: order.items.map((item) => ({
         productId: item.productId,
         name: item.product.name,
+        imageUrl: item.product.imageUrl,
         size: item.size,
         toppings: item.toppings ? item.toppings.split(',') : [],
         quantity: item.qty,
