@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { CartItem } from '@/types/cart';
+import { CartItem } from '../types/cart';
 
 /** Key duy nhất: productId + size + toppings đã sort */
 const getItemKey = (item: Pick<CartItem, 'productId' | 'size' | 'toppings'>) =>

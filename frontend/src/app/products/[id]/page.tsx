@@ -9,6 +9,7 @@ import { SizeSelector } from '@/components/SizeSelector';
 import { ToppingSelector } from '@/components/ToppingSelector';
 import { getProductById } from '@/lib/api';
 import { calcLineTotal, ProductSize, ToppingOption } from '@/lib/pricing';
+import { useCartStore } from '@/store/cartStore';
 import { Product } from '@/types/product';
 
 const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(price) + 'đ';
@@ -17,6 +18,7 @@ const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(pri
 function ProductDetailContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const addItem = useCartStore((state) => state.addItem);
   const productId = Number(params.id);
   const isValidProductId = Number.isInteger(productId);
 
@@ -25,10 +27,10 @@ function ProductDetailContent() {
   const [size, setSize] = useState<ProductSize>('M');
   const [toppings, setToppings] = useState<ToppingOption[]>([]);
   const [quantity, setQuantity] = useState(1);
+  const [addedToCart, setAddedToCart] = useState(false);
 
   useEffect(() => {
     if (!isValidProductId) {
-      setLoading(false);
       return;
     }
 
@@ -49,17 +51,19 @@ function ProductDetailContent() {
     return calcLineTotal(product, size, toppings, quantity);
   }, [product, quantity, size, toppings]);
 
-  if (!isValidProductId || (!loading && !product)) {
-    return (
-      <div className="min-h-screen bg-gray-50 px-4 py-10">
-        <div className="max-w-3xl mx-auto bg-white rounded-xl p-6 text-center shadow-sm">
-          <p className="text-lg font-semibold text-gray-900 mb-2">Sản phẩm không tồn tại</p>
-          <Link href="/" className="inline-flex mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
-            ← Quay lại menu
-          </Link>
-        </div>
+  const notFoundPage = (
+    <div className="min-h-screen bg-gray-50 px-4 py-10">
+      <div className="max-w-3xl mx-auto bg-white rounded-xl p-6 text-center shadow-sm">
+        <p className="text-lg font-semibold text-gray-900 mb-2">Sản phẩm không tồn tại</p>
+        <Link href="/" className="inline-flex mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
+          ← Quay lại menu
+        </Link>
       </div>
-    );
+    </div>
+  );
+
+  if (!isValidProductId) {
+    return notFoundPage;
   }
 
   if (loading) {
@@ -78,6 +82,10 @@ function ProductDetailContent() {
         </div>
       </div>
     );
+  }
+
+  if (!product) {
+    return notFoundPage;
   }
 
   return (
@@ -118,10 +126,34 @@ function ProductDetailContent() {
 
             <button
               type="button"
+              onClick={() => {
+                if (!product) {
+                  return;
+                }
+
+                addItem({
+                  productId: Number(product.id),
+                  name: product.name,
+                  imageUrl: product.imageUrl,
+                  size,
+                  toppings,
+                  unitPrice: calcLineTotal(product, size, toppings, 1),
+                  quantity,
+                });
+                setAddedToCart(true);
+              }}
               className="w-full py-3 rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-700 transition"
             >
               Thêm vào giỏ
             </button>
+            {addedToCart && (
+              <p role="status" className="text-sm text-green-700">
+                Đã thêm vào giỏ hàng.{' '}
+                <Link href="/cart" className="font-semibold underline">
+                  Xem giỏ hàng
+                </Link>
+              </p>
+            )}
           </div>
         </div>
       </div>

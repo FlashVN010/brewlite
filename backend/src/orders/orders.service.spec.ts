@@ -33,7 +33,10 @@ describe('OrdersService', () => {
         items: [
           {
             productId: 3,
-            product: { name: 'Cappuccino' },
+            product: {
+              name: 'Cappuccino',
+              imageUrl: '/images/cappuccino.jpg',
+            },
             size: 'M',
             toppings: 'tran-chau',
             qty: 1,
@@ -54,6 +57,7 @@ describe('OrdersService', () => {
           {
             productId: 3,
             name: 'Cappuccino',
+            imageUrl: '/images/cappuccino.jpg',
             size: 'M',
             toppings: ['tran-chau'],
             quantity: 1,
@@ -68,7 +72,11 @@ describe('OrdersService', () => {
       where: { userId: 7 },
       orderBy: { createdAt: 'desc' },
       include: {
-        items: { include: { product: { select: { name: true } } } },
+        items: {
+          include: {
+            product: { select: { name: true, imageUrl: true } },
+          },
+        },
         payments: {
           select: { amount: true, method: true, createdAt: true },
         },
