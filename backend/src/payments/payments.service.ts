@@ -3,29 +3,17 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
 import { MockPaymentService } from './mock-payment.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { OrdersService } from '../orders/orders.service';
-
-export interface PaymentRecord {
-  id: string;
-  orderId: string;
-  idempotencyKey?: string;
-  amount: number;
-  method: 'WALLET' | 'CARD';
-  status: 'PAID' | 'PAYMENT_FAILED';
-  transactionId?: string;
-  createdAt: Date;
-}
 
 @Injectable()
 export class PaymentsService {
-  private payments: PaymentRecord[] = [];
-  private paidOrders = new Set<string>();
-
   constructor(
     private readonly mockPaymentService: MockPaymentService,
-    private readonly ordersService: OrdersService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async processPayment(
@@ -33,57 +21,81 @@ export class PaymentsService {
     idempotencyKey?: string,
     mockResultHeader?: string,
   ) {
-    // 1. Kịch bản 409 Conflict: Đơn hàng đã được thanh toán trước đó
-    if (this.paidOrders.has(dto.orderId)) {
-      throw new ConflictException('Đơn hàng đã ở trạng thái PAID');
-    }
+const key = idempotencyKey || randomUUID();
+const previousPayment = await this.prisma.payment.findUnique({
+  where: { idempotencyKey: key },
+});
+if (previousPayment) {
+  throw new ConflictException('Idempotency key đã được sử dụng');
+}
 
-    // 2. Kịch bản 404 Not Found: Đơn hàng không đúng định dạng Task 6 (bắt đầu bằng ORD-)
-    if (!dto.orderId.startsWith('ORD-')) {
+const orderCode = /^ORD-\d{8}-(\d+)$/.exec(dto.orderId);
+if (!orderCode) {
   throw new NotFoundException('Đơn hàng không tồn tại');
 }
 
-    const orderAmount = 50000; // Số tiền đơn hàng giả định
+const order = await this.prisma.order.findUnique({
+  where: { id: Number(orderCode[1]) },
+});
+if (!order || this.formatOrderCode(order.id, order.createdAt) !== dto.orderId) {
+  throw new NotFoundException('Đơn hàng không tồn tại');
+}
+if (order.status === 'PAID') {
+  throw new ConflictException('Đơn hàng đã ở trạng thái PAID');
+}
 
-    // 3. Thực hiện xử lý thanh toán qua MockPaymentService
-    const result = await this.mockPaymentService.charge(
-      orderAmount,
-      dto.method,
-      mockResultHeader,
-    );
+const result = await this.mockPaymentService.charge(
+  order.total,
+  dto.method,
+  mockResultHeader,
+);
 
-    const paymentRecord: PaymentRecord = {
-      id: `PAY-${Date.now()}`,
-      orderId: dto.orderId,
-      idempotencyKey,
-      amount: orderAmount,
-      method: dto.method,
-      status: result.success ? 'PAID' : 'PAYMENT_FAILED',
-      transactionId: result.transactionId,
-      createdAt: new Date(),
-    };
+let payment: { createdAt: Date };
+try {
+  payment = await this.prisma.$transaction(async (tx) => {
+    const createdPayment = await tx.payment.create({
+      data: {
+        orderId: order.id,
+        idempotencyKey: key,
+        amount: order.total,
+        method: dto.method,
+      },
+    });
+    await tx.order.update({
+      where: { id: order.id },
+      data: { status: result.success ? 'PAID' : 'PAYMENT_FAILED' },
+    });
+    return createdPayment;
+  });
+} catch (error) {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  ) {
+    throw new ConflictException('Idempotency key đã được sử dụng');
+  }
+  throw error;
+}
 
-    this.payments.push(paymentRecord);
-    
-    // Ghi log giao dịch để debug theo yêu cầu
-    console.log(
-      `[PAYMENT LOG] Order: ${dto.orderId} | Status: ${paymentRecord.status} | TxnId: ${paymentRecord.transactionId || 'N/A'}`,
-    );
+if (result.success) {
+  return {
+    status: 'PAID',
+    transactionId: result.transactionId,
+    paidAt: payment.createdAt.toISOString(),
+  };
+}
 
-    // 4. Trả về kết quả
-    if (result.success) {
-      this.paidOrders.add(dto.orderId);
-      return {
-        status: 'PAID',
-        transactionId: result.transactionId,
-        paidAt: paymentRecord.createdAt.toISOString(),
-      };
-    } else {
-      return {
-        status: 'PAYMENT_FAILED',
-        reason: result.reason,
-        transactionId: null,
-      };
-    }
+return {
+  status: 'PAYMENT_FAILED',
+  reason: result.reason,
+  transactionId: null,
+};
+  }
+
+  private formatOrderCode(id: number, createdAt: Date): string {
+const year = createdAt.getFullYear();
+const month = String(createdAt.getMonth() + 1).padStart(2, '0');
+const day = String(createdAt.getDate()).padStart(2, '0');
+return `ORD-${year}${month}${day}-${String(id).padStart(4, '0')}`;
   }
 }

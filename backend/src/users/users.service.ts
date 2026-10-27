@@ -1,46 +1,32 @@
 import { Injectable, ConflictException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../../prisma/prisma.service';    
 
-export interface User {
-  id: number;
-  email: string;
-  passwordHash: string;
-  loyaltyPoints: number;
-}
-
-@Injectable()
+@ Injectable()
 export class UsersService {
-  private users: User[] = [];
-  private idCounter = 1;
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findByEmail(email: string): Promise<User | undefined> {
-    return this.users.find((u) => u.email === email);
+  findByEmail(email: string) {
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
-  async findById(id: number): Promise<User | undefined> {
-    return this.users.find((u) => u.id === id);
+  findById(id: number) {
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async create(email: string, password: string): Promise<Omit<User, 'passwordHash'>> {
-    const existingUser = await this.findByEmail(email);
-    if (existingUser) {
-      throw new ConflictException('Email đã được sử dụng');
-    }
-
-    // Băm mật khẩu bằng bcrypt (10 rounds)
+  async create(email: string, password: string) {
     const passwordHash = await bcrypt.hash(password, 10);
-
-    const newUser: User = {
-      id: this.idCounter++,
-      email,
-      passwordHash,
-      loyaltyPoints: 0,
-    };
-
-    this.users.push(newUser);
-
-    // Bỏ passwordHash trước khi trả về
-    const { passwordHash: _, ...result } = newUser;
-    return result;
+    try {
+      return await this.prisma.user.create({
+        data: { email, passwordHash },
+        select: { id: true, email: true, loyaltyPoints: true },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new ConflictException('Email đã được sử dụng');
+      }
+      throw e;
+    }
   }
 }
