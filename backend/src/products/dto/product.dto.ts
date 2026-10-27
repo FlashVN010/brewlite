@@ -1,4 +1,6 @@
-export type ProductCategory = 'coffee' | 'tea' | 'smoothie' | 'other';
+import type { ProductCategory } from '@prisma/client';
+
+export type { ProductCategory };
 
 export class ProductDto {
   id: number;
