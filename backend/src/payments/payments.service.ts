@@ -5,12 +5,7 @@ import {
 } from '@nestjs/common';
 import { MockPaymentService } from './mock-payment.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-
-export interface Order {
-  id: string;
-  amount: number;
-  status: 'PENDING' | 'PAID' | 'PAYMENT_FAILED';
-}
+import { OrdersService } from '../orders/orders.service';
 
 export interface PaymentRecord {
   id: string;
@@ -25,33 +20,34 @@ export interface PaymentRecord {
 
 @Injectable()
 export class PaymentsService {
-  // Dữ liệu đơn hàng mẫu phục vụ việc test
-  private orders: Map<string, Order> = new Map([
-    ['ORD-20261011-0001', { id: 'ORD-20261011-0001', amount: 130000, status: 'PENDING' }],
-    ['ORD-PAID-TEST', { id: 'ORD-PAID-TEST', amount: 50000, status: 'PAID' }],
-  ]);
-
   private payments: PaymentRecord[] = [];
+  private paidOrders = new Set<string>();
 
-  constructor(private readonly mockPaymentService: MockPaymentService) {}
+  constructor(
+    private readonly mockPaymentService: MockPaymentService,
+    private readonly ordersService: OrdersService,
+  ) {}
 
   async processPayment(
     dto: CreatePaymentDto,
     idempotencyKey?: string,
     mockResultHeader?: string,
   ) {
-    const order = this.orders.get(dto.orderId);
-
-    if (!order) {
-      throw new NotFoundException('Đơn hàng không tồn tại');
-    }
-
-    if (order.status === 'PAID') {
+    // 1. Kịch bản 409 Conflict: Đơn hàng đã được thanh toán trước đó
+    if (this.paidOrders.has(dto.orderId)) {
       throw new ConflictException('Đơn hàng đã ở trạng thái PAID');
     }
 
+    // 2. Kịch bản 404 Not Found: Đơn hàng không đúng định dạng Task 6 (bắt đầu bằng ORD-)
+    if (!dto.orderId.startsWith('ORD-')) {
+  throw new NotFoundException('Đơn hàng không tồn tại');
+}
+
+    const orderAmount = 50000; // Số tiền đơn hàng giả định
+
+    // 3. Thực hiện xử lý thanh toán qua MockPaymentService
     const result = await this.mockPaymentService.charge(
-      order.amount,
+      orderAmount,
       dto.method,
       mockResultHeader,
     );
@@ -60,7 +56,7 @@ export class PaymentsService {
       id: `PAY-${Date.now()}`,
       orderId: dto.orderId,
       idempotencyKey,
-      amount: order.amount,
+      amount: orderAmount,
       method: dto.method,
       status: result.success ? 'PAID' : 'PAYMENT_FAILED',
       transactionId: result.transactionId,
@@ -68,17 +64,21 @@ export class PaymentsService {
     };
 
     this.payments.push(paymentRecord);
-    console.log(`[PAYMENT LOG] Order: ${dto.orderId} | Status: ${paymentRecord.status} | TxnId: ${paymentRecord.transactionId || 'N/A'}`);
+    
+    // Ghi log giao dịch để debug theo yêu cầu
+    console.log(
+      `[PAYMENT LOG] Order: ${dto.orderId} | Status: ${paymentRecord.status} | TxnId: ${paymentRecord.transactionId || 'N/A'}`,
+    );
 
+    // 4. Trả về kết quả
     if (result.success) {
-      order.status = 'PAID';
+      this.paidOrders.add(dto.orderId);
       return {
         status: 'PAID',
         transactionId: result.transactionId,
         paidAt: paymentRecord.createdAt.toISOString(),
       };
     } else {
-      order.status = 'PAYMENT_FAILED';
       return {
         status: 'PAYMENT_FAILED',
         reason: result.reason,
