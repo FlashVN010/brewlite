@@ -51,22 +51,9 @@ function ProductDetailContent() {
     return calcLineTotal(product, size, toppings, quantity);
   }, [product, quantity, size, toppings]);
 
-  const notFoundPage = (
-    <div className="min-h-screen bg-gray-50 px-4 py-10">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl p-6 text-center shadow-sm">
-        <p className="text-lg font-semibold text-gray-900 mb-2">Sản phẩm không tồn tại</p>
-        <Link href="/" className="inline-flex mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
-          ← Quay lại menu
-        </Link>
-      </div>
-    </div>
-  );
 
-  if (!isValidProductId) {
-    return notFoundPage;
-  }
 
-  if (loading) {
+  if (loading && isValidProductId) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-6">
         <div className="max-w-6xl mx-auto animate-pulse">
@@ -84,8 +71,17 @@ function ProductDetailContent() {
     );
   }
 
-  if (!product) {
-    return notFoundPage;
+    if (!isValidProductId || !product) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-10">
+        <div className="max-w-3xl mx-auto bg-white rounded-xl p-6 text-center shadow-sm">
+          <p className="text-lg font-semibold text-gray-900 mb-2">Sản phẩm không tồn tại</p>
+          <Link href="/" className="inline-flex mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700">
+            ← Quay lại menu
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (

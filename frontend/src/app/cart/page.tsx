@@ -164,7 +164,7 @@ export default function CartPage() {
             <button
               type="button"
               onClick={() => {
-                const hasToken = window.localStorage.getItem(AUTH_TOKEN_KEY);
+                const hasToken = window.sessionStorage.getItem(AUTH_TOKEN_KEY);
                 router.push(hasToken ? '/checkout' : '/login?next=/checkout');
               }}
               className="flex-1 text-center py-3 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition"

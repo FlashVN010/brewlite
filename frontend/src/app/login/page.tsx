@@ -27,9 +27,11 @@ function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (window.localStorage.getItem(AUTH_TOKEN_KEY)) {
+    if (window.sessionStorage.getItem(AUTH_TOKEN_KEY)) {
       router.replace(nextPath);
     }
+
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
   }, [nextPath, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -43,7 +45,7 @@ function LoginForm() {
       }
 
       const auth = await loginUser(email, password);
-      window.localStorage.setItem(AUTH_TOKEN_KEY, auth.accessToken);
+      window.sessionStorage.setItem(AUTH_TOKEN_KEY, auth.accessToken);
       router.replace(nextPath);
     } catch (submitError) {
       setError(

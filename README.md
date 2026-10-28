@@ -96,7 +96,6 @@ npm test
 ```
 
 ## Quy trình Git
-
 - `main`: nhánh ổn định, được bảo vệ, chỉ merge qua Pull Request có ít nhất 1 approve.
 - `develop`: nhánh tích hợp chính.
 - Mỗi task một nhánh `feature/task-<số>-<mô-tả-ngắn>`, ví dụ `feature/task-1-init-monorepo`, tạo từ `develop` và mở PR vào `develop`.
@@ -109,13 +108,10 @@ npm test
 | STT | Họ tên | Vai trò |
 |---|---|---|
 | 1 | (điền tên) | Product Owner / BA |
-| 2 | (điền tên) | Scrum Master / QA / DevOps |
+| 2 | Ngọc Đại | Scrum Master / QA / DevOps |
 | 3 | (điền tên) | Backend Lead |
 | 4 | (điền tên) | Backend Auth / Payment |
 | 5 | (điền tên) | Frontend Lead |
 | 6 | (điền tên) | Frontend UI/UX |
 | 7 | Hoàng Duy | Fullstack / Integration |
 
-## License
-
-Dự án học tập của môn Công nghệ Phần mềm, chưa chọn license.
