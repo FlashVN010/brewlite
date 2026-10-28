@@ -19,8 +19,6 @@
       }
     ],
     "paths": {
-      "@/store/*": ["./store/*"],
-      "@/types/cart": ["./types/cart"],
       "@/*": ["./src/*"]
     }
   },
