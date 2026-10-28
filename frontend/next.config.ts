@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: "standalone", // bắt buộc cho Dockerfile ở trên
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

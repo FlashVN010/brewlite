@@ -60,7 +60,7 @@ export default function OrderHistoryPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
+      const token = window.sessionStorage.getItem(AUTH_TOKEN_KEY);
       if (!token) {
         router.replace('/login?next=/orders');
         return;
@@ -107,7 +107,7 @@ export default function OrderHistoryPage() {
             <button
               type="button"
               onClick={() => {
-                const token = window.localStorage.getItem(AUTH_TOKEN_KEY);
+                const token = window.sessionStorage.getItem(AUTH_TOKEN_KEY);
                 if (token) void loadOrders(token);
               }}
               className="mt-4 rounded-lg bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700"

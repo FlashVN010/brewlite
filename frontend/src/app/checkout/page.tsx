@@ -23,13 +23,13 @@ export default function CheckoutPage() {
   const [token, setToken] = useState('');
   const [order, setOrder] = useState<CreatedOrder | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'WALLET'>('CARD');
-  const [message, setMessage] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<'PAID' | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const savedToken = window.localStorage.getItem(AUTH_TOKEN_KEY);
+      const savedToken = window.sessionStorage.getItem(AUTH_TOKEN_KEY);
       if (!savedToken) {
         router.replace('/login?next=/checkout');
         return;
@@ -69,12 +69,12 @@ export default function CheckoutPage() {
   async function handlePayment() {
     if (!order) return;
     setError('');
-    setMessage('');
+    setPaymentStatus(null);
     setSubmitting(true);
     try {
       const result = await payOrder(token, order.code, paymentMethod);
       if (result.status === 'PAID') {
-        setMessage(`Thanh toán thành công cho đơn ${order.code}.`);
+        setPaymentStatus('PAID');
       } else {
         setError(result.reason || 'Thanh toán không thành công.');
       }
@@ -104,7 +104,11 @@ export default function CheckoutPage() {
           ← Quay lại giỏ hàng
         </Link>
         <h1 className="mt-4 text-2xl font-bold text-gray-900">
-          {order ? 'Thanh toán đơn hàng' : 'Xác nhận đơn hàng'}
+          {paymentStatus === 'PAID'
+            ? 'Đặt hàng thành công'
+            : order
+              ? 'Thanh toán đơn hàng'
+              : 'Xác nhận đơn hàng'}
         </h1>
 
         {!order && items.length === 0 && (
@@ -155,7 +159,39 @@ export default function CheckoutPage() {
           </>
         )}
 
-        {order && (
+        {order && paymentStatus === 'PAID' && (
+          <div role="status" className="mt-6 rounded-xl border border-green-200 bg-green-50 p-5 text-center">
+            <div
+              aria-hidden="true"
+              className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-2xl font-bold text-white"
+            >
+              ✓
+            </div>
+            <h2 className="mt-4 text-xl font-bold text-green-800">
+              Thanh toán thành công
+            </h2>
+            <div className="mt-5 rounded-lg bg-white p-4">
+              <p className="text-sm text-gray-500">Mã đơn</p>
+              <p className="mt-1 text-2xl font-bold tracking-wide text-gray-900">
+                {order.code}
+              </p>
+              <p className="mt-3 text-sm text-gray-700">
+                Trạng thái: <strong className="text-green-700">Đã thanh toán</strong>
+              </p>
+            </div>
+            <p className="mt-5 font-medium text-gray-800">
+              Vui lòng tới quầy để lấy nước.
+            </p>
+            <Link
+              href="/"
+              className="mt-5 inline-block rounded-lg bg-amber-600 px-5 py-3 font-semibold text-white hover:bg-amber-700"
+            >
+              Về trang menu
+            </Link>
+          </div>
+        )}
+
+        {order && !paymentStatus && (
           <div className="mt-6 space-y-4">
             <p className="text-gray-700">
               Mã đơn: <strong>{order.code}</strong>
@@ -176,21 +212,14 @@ export default function CheckoutPage() {
                 <option value="WALLET">Ví</option>
               </select>
             </label>
-            {!message && (
-              <button
-                type="button"
-                onClick={handlePayment}
-                disabled={submitting}
-                className="w-full rounded-lg bg-amber-600 py-3 font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-              >
-                {submitting ? 'Đang thanh toán...' : 'Thanh toán'}
-              </button>
-            )}
-            {message && (
-              <p role="status" className="text-sm text-green-700">
-                {message}
-              </p>
-            )}
+            <button
+              type="button"
+              onClick={handlePayment}
+              disabled={submitting}
+              className="w-full rounded-lg bg-amber-600 py-3 font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              {submitting ? 'Đang thanh toán...' : 'Thanh toán'}
+            </button>
           </div>
         )}
 
