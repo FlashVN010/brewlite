@@ -98,6 +98,28 @@ export class OrdersService {
     });
 
     // 3. Transaction: trừ kho + tạo đơn, lỗi giữa chừng thì hoàn tác tất cả
+    // Áp dụng mã giảm giá (Promotion) nếu người dùng truyền promoCode
+    if (dto.promoCode) {
+      const promo = await this.prisma.promotion.findUnique({
+        where: { code: dto.promoCode },
+      });
+
+      if (!promo || !promo.active || promo.expiresAt < new Date()) {
+        throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn');
+      }
+
+      if (orderTotal < promo.minOrder) {
+        throw new BadRequestException(
+          `Đơn hàng phải tối thiểu ${promo.minOrder.toLocaleString('vi-VN')}đ để áp dụng mã này`,
+        );
+      }
+
+      if (promo.type === 'PERCENT') {
+        orderTotal = orderTotal - (orderTotal * promo.value) / 100;
+      } else if (promo.type === 'FIXED') {
+        orderTotal = Math.max(0, orderTotal - promo.value);
+      }
+    }
     const order = await this.prisma.$transaction(async (tx) => {
       for (const item of itemsData) {
         const result = await tx.product.updateMany({

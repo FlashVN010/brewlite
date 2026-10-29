@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MockPaymentService } from './mock-payment.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { OrderStateService } from '../orders/order.state.service'; 
 
 @Injectable()
 export class PaymentsService {
@@ -53,6 +54,7 @@ const result = await this.mockPaymentService.charge(
 let payment: { createdAt: Date };
 try {
   payment = await this.prisma.$transaction(async (tx) => {
+    // Chỉ ở phần D: Tích điểm Loyalty khi thanh toán thành công
     const createdPayment = await tx.payment.create({
       data: {
         orderId: order.id,
@@ -65,6 +67,15 @@ try {
       where: { id: order.id },
       data: { status: result.success ? 'PAID' : 'PAYMENT_FAILED' },
     });
+    if (result.success) {
+      const pointsEarned = Math.floor(order.total / 10000); // 130.000đ -> 13 điểm
+      if (pointsEarned > 0) {
+        await tx.user.update({
+          where: { id: order.userId },
+          data: { loyaltyPoints: { increment: pointsEarned } },
+        });
+      }
+    }
     return createdPayment;
   });
 } catch (error) {

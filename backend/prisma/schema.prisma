@@ -13,6 +13,10 @@ enum ProductCategory {
   smoothie
   other
 }
+enum PromotionType {
+  PERCENT
+  FIXED
+}
 
 model Product {
   id        Int             @id @default(autoincrement())
@@ -76,4 +80,14 @@ model Payment {
   amount         Float
   method         String
   createdAt      DateTime @default(now())
+}
+model Promotion {
+  id        Int           @id @default(autoincrement())
+  code      String        @unique
+  type      PromotionType
+  value     Float
+  minOrder  Float         @default(0)
+  expiresAt DateTime
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
 }

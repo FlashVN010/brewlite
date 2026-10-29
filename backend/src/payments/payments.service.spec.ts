@@ -1,36 +1,42 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { MockPaymentService } from './mock-payment.service';
 import { PaymentsService } from './payments.service';
-import { describe } from 'node:test';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
+
+  // Bổ sung userId: 1 và as const cho status để chuẩn 100% với schema
   const order = {
     id: 12,
+    userId: 1,
     createdAt: new Date(2026, 9, 27),
     total: 75000,
-    status: 'PENDING',
+    status: 'PENDING' as const,
   };
+
   const tx = {
-    payment: { create: jest.fn() },
-    order: { update: jest.fn() },
+    payment: { create: jest.fn<any>() },
+    order: { update: jest.fn<any>() },
+    user: { update: jest.fn<any>() },
   };
+
   const prisma = {
-    payment: { findUnique: jest.fn() },
-    order: { findUnique: jest.fn() },
-    $transaction: jest.fn(),
+    payment: { findUnique: jest.fn<any>() },
+    order: { findUnique: jest.fn<any>() },
+    $transaction: jest.fn<any>(),
   };
-  const mockPaymentService = { charge: jest.fn() };
+
+  const mockPaymentService = { charge: jest.fn<any>() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
     prisma.payment.findUnique.mockResolvedValue(null);
     prisma.order.findUnique.mockResolvedValue(order);
-    prisma.$transaction.mockImplementation((callback) => callback(tx));
+    prisma.$transaction.mockImplementation((callback: any) => callback(tx));
     tx.payment.create.mockResolvedValue({ createdAt: order.createdAt });
     tx.order.update.mockResolvedValue({});
 
