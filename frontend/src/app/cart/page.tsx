@@ -3,6 +3,8 @@
 import { useCartStore } from '@/store/cartStore';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { AUTH_TOKEN_KEY } from '@/lib/api';
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('vi-VN').format(price) + 'đ';
@@ -16,6 +18,7 @@ function getItemKey(item: {
 }
 
 export default function CartPage() {
+  const router = useRouter();
   const items = useCartStore((s) => s.items);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
@@ -158,12 +161,16 @@ export default function CartPage() {
             >
               Tiếp tục mua
             </Link>
-            <Link
-              href="/checkout"
+            <button
+              type="button"
+              onClick={() => {
+                const hasToken = window.sessionStorage.getItem(AUTH_TOKEN_KEY);
+                router.push(hasToken ? '/checkout' : '/login?next=/checkout');
+              }}
               className="flex-1 text-center py-3 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition"
             >
               Tiến hành thanh toán
-            </Link>
+            </button>
           </div>
         </div>
       </div>

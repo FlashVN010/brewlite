@@ -1,4 +1,5 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseEnumPipe, ParseIntPipe, Query } from '@nestjs/common';
+import { ProductCategory } from '@prisma/client';
 import { ProductsService } from './products.service';
 import { ProductDto } from './dto/product.dto';
 
@@ -7,7 +8,10 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Get()
-  async getProducts(@Query('category') category?: string): Promise<ProductDto[]> {
+  async getProducts(
+    @Query('category', new ParseEnumPipe(ProductCategory, { optional: true }))
+    category?: ProductCategory,
+  ): Promise<ProductDto[]> {
     return this.productsService.findAll(category);
   }
 

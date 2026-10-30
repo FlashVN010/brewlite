@@ -19,6 +19,17 @@ export default function MenuPage() {
               {totalItems}
             </span>
           )}
+        </Link>
+        <Link
+          href="/orders"
+          className="rounded-full border border-amber-200 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-50"
+        >
+          Đơn hàng
+        </Link>
+      </header>
+
+      <main className="container mx-auto px-4 py-6">
+        <ProductGrid />
       </main>
     </div>
   );
