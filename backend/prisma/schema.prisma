@@ -45,6 +45,11 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PromotionType {
+  PERCENT
+  FIXED
+}
+
 model Order {
   id        Int         @id @default(autoincrement())
   userId    Int
@@ -72,8 +77,28 @@ model Payment {
   id             Int      @id @default(autoincrement())
   orderId        Int
   order          Order    @relation(fields: [orderId], references: [id])
-  idempotencyKey String   @unique
+  idempotencyKey String
   amount         Float
   method         String
   createdAt      DateTime @default(now())
+}
+
+model IdempotencyRecord {
+  key       String   @id
+  orderId   Int
+  response  Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+model Promotion {
+  code      String        @id
+  type      PromotionType
+  value     Float
+  minOrder  Float
+  expiresAt DateTime
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
 }

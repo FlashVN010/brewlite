@@ -1,4 +1,4 @@
-import { PrismaClient, ProductCategory } from '@prisma/client';
+import { PrismaClient, ProductCategory, PromotionType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -67,6 +67,25 @@ const toppingPrice: Record<string, number> = {
 };
 
 async function main() {
+  await prisma.promotion.upsert({
+    where: { code: 'WELCOME10' },
+    update: {
+      type: PromotionType.PERCENT,
+      value: 10,
+      minOrder: 50000,
+      active: true,
+      expiresAt: new Date('2099-12-31T00:00:00.000Z'),
+    },
+    create: {
+      code: 'WELCOME10',
+      type: PromotionType.PERCENT,
+      value: 10,
+      minOrder: 50000,
+      active: true,
+      expiresAt: new Date('2099-12-31T00:00:00.000Z'),
+    },
+  });
+
   const users = new Map<string, number>();
   for (const user of userData) {
     const existingUser = await prisma.user.findUnique({

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -65,7 +69,7 @@ export class OrdersService {
     const productMap = new Map(products.map((p) => [p.id, p]));
 
     // 2. Tự tính tiền ở server, không tin bất kỳ giá nào từ client
-    let orderTotal = 0;
+    let subTotal = 0;
     const itemsData = dto.items.map((item) => {
       const product = productMap.get(item.productId);
       if (!product) {
@@ -86,7 +90,7 @@ export class OrdersService {
 
       const unitPrice = product.price + SIZE_EXTRA_PRICE[item.size] + toppingsPrice;
       const lineTotal = unitPrice * item.quantity;
-      orderTotal += lineTotal;
+      subTotal += lineTotal;
 
       return {
         productId: product.id,
@@ -97,16 +101,35 @@ export class OrdersService {
       };
     });
 
+    const orderTotal = await this.applyPromotion(dto.promoCode, subTotal);
+
     // 3. Transaction: trừ kho + tạo đơn, lỗi giữa chừng thì hoàn tác tất cả
     const order = await this.prisma.$transaction(async (tx) => {
       for (const item of itemsData) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { stock: true, version: true, name: true },
+        });
+        if (!product) {
+          throw new BadRequestException(`productId ${item.productId} không tồn tại`);
+        }
+        if (product.stock < item.qty) {
+          throw new BadRequestException(`"${product.name}" không đủ số lượng trong kho`);
+        }
+
         const result = await tx.product.updateMany({
-          where: { id: item.productId, stock: { gte: item.qty } },
-          data: { stock: { decrement: item.qty } },
+          where: {
+            id: item.productId,
+            version: product.version,
+            stock: { gte: item.qty },
+          },
+          data: {
+            stock: { decrement: item.qty },
+            version: { increment: 1 },
+          },
         });
         if (result.count === 0) {
-          const name = productMap.get(item.productId)!.name;
-          throw new BadRequestException(`"${name}" không đủ số lượng trong kho`);
+          throw new ConflictException('Hết hàng');
         }
       }
 
@@ -137,6 +160,30 @@ export class OrdersService {
       })),
       createdAt: order.createdAt.toISOString(),
     };
+  }
+
+  private async applyPromotion(code: string | undefined, subTotal: number) {
+    if (!code) {
+      return subTotal;
+    }
+
+    const promotion = await this.prisma.promotion.findUnique({ where: { code } });
+    const now = new Date();
+
+    if (
+      !promotion ||
+      !promotion.active ||
+      promotion.expiresAt.getTime() < now.getTime() ||
+      subTotal < promotion.minOrder
+    ) {
+      throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn');
+    }
+
+    const discount =
+      promotion.type === 'PERCENT'
+        ? (subTotal * promotion.value) / 100
+        : promotion.value;
+    return Math.max(0, subTotal - discount);
   }
 
   // Mã hiển thị ORD-YYYYMMDD-XXXX, suy ra từ id nên không bị trùng khi restart
