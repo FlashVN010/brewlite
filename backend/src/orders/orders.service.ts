@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -56,7 +56,7 @@ export class OrdersService {
     }));
   }
 
-  async createOrder(dto: CreateOrderDto, userId: number) {
+  async createOrder(dto: CreateOrderDto, userId: number =1 ) {
     // 1. Lấy tất cả sản phẩm cần thiết bằng 1 truy vấn (thay vì N truy vấn)
     const ids = [...new Set(dto.items.map((i) => i.productId))];
     const products = await this.prisma.product.findMany({
@@ -122,13 +122,29 @@ export class OrdersService {
     }
     const order = await this.prisma.$transaction(async (tx) => {
       for (const item of itemsData) {
+        const product = productMap.get(item.productId)!;
+
+        // 1. Kiểm tra ban đầu: nếu kho không đủ -> ném lỗi 400 Bad Request
+        if (product.stock < item.qty) {
+          throw new BadRequestException(`"${product.name}" không đủ số lượng trong kho`);
+        }
+
+        // 2. Optimistic Locking: kiểm tra cả stock và version hiện tại
         const result = await tx.product.updateMany({
-          where: { id: item.productId, stock: { gte: item.qty } },
-          data: { stock: { decrement: item.qty } },
+          where: {
+            id: item.productId,
+            version: product.version, // Khóa lạc quan theo phiên bản
+            stock: { gte: item.qty },
+          },
+          data: {
+            stock: { decrement: item.qty },
+            version: { increment: 1 }, // Tăng version sau mỗi lần cập nhật
+          },
         });
+
+        // 3. Nếu count === 0: do xung đột đồng thời hoặc bị đổi version -> ném lỗi 409 Conflict
         if (result.count === 0) {
-          const name = productMap.get(item.productId)!.name;
-          throw new BadRequestException(`"${name}" không đủ số lượng trong kho`);
+          throw new ConflictException(`"${product.name}" đã hết hàng do xung đột đặt hàng đồng thời`);
         }
       }
 
