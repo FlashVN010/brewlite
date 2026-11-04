@@ -13,6 +13,10 @@ enum ProductCategory {
   smoothie
   other
 }
+enum PromotionType {
+  PERCENT
+  FIXED
+}
 
 model Product {
   id        Int             @id @default(autoincrement())
@@ -53,6 +57,7 @@ model Order {
   total     Float
   items     OrderItem[]
   payments  Payment[]
+  idempotencyRecords IdempotencyRecord[]
   createdAt DateTime    @default(now())
 }
 
@@ -76,4 +81,24 @@ model Payment {
   amount         Float
   method         String
   createdAt      DateTime @default(now())
+}
+
+model IdempotencyRecord {
+  key       String   @id
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  response  Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model Promotion {
+  id        Int           @id @default(autoincrement())
+  code      String        @unique
+  type      PromotionType
+  value     Float
+  minOrder  Float         @default(0)
+  expiresAt DateTime
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
 }

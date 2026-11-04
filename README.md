@@ -194,6 +194,8 @@ Nếu dùng DB trong Docker để tạo migration, mở tạm cổng DB trong `d
 
 Rồi dùng `localhost:5433` trong `DATABASE_URL` khi chạy lệnh trên máy. Dùng cổng 5433 thay vì 5432 để tránh trùng với PostgreSQL cài sẵn trên máy.
 
+
+
 ## Xử lý lỗi thường gặp
 
 | Hiện tượng | Cách xử lý |

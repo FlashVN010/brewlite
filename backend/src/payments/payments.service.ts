@@ -1,13 +1,14 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MockPaymentService } from './mock-payment.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { OrderStateService } from '../orders/order.state.service'; 
 
 @Injectable()
 export class PaymentsService {
@@ -21,76 +22,107 @@ export class PaymentsService {
     idempotencyKey?: string,
     mockResultHeader?: string,
   ) {
-const key = idempotencyKey || randomUUID();
-const previousPayment = await this.prisma.payment.findUnique({
-  where: { idempotencyKey: key },
-});
-if (previousPayment) {
-  throw new ConflictException('Idempotency key đã được sử dụng');
-}
+    const key = idempotencyKey?.trim();
+    if (!key) {
+      throw new BadRequestException('Thiếu header Idempotency-Key');
+    }
 
-const orderCode = /^ORD-\d{8}-(\d+)$/.exec(dto.orderId);
-if (!orderCode) {
-  throw new NotFoundException('Đơn hàng không tồn tại');
-}
-
-const order = await this.prisma.order.findUnique({
-  where: { id: Number(orderCode[1]) },
-});
-if (!order || this.formatOrderCode(order.id, order.createdAt) !== dto.orderId) {
-  throw new NotFoundException('Đơn hàng không tồn tại');
-}
-if (order.status === 'PAID') {
-  throw new ConflictException('Đơn hàng đã ở trạng thái PAID');
-}
-
-const result = await this.mockPaymentService.charge(
-  order.total,
-  dto.method,
-  mockResultHeader,
-);
-
-let payment: { createdAt: Date };
-try {
-  payment = await this.prisma.$transaction(async (tx) => {
-    const createdPayment = await tx.payment.create({
-      data: {
-        orderId: order.id,
-        idempotencyKey: key,
-        amount: order.total,
-        method: dto.method,
-      },
+    const now = new Date();
+    await this.prisma.idempotencyRecord.deleteMany({
+      where: { expiresAt: { lt: now } },
     });
-    await tx.order.update({
-      where: { id: order.id },
-      data: { status: result.success ? 'PAID' : 'PAYMENT_FAILED' },
+    const previousRequest = await this.prisma.idempotencyRecord.findUnique({
+      where: { key },
     });
-    return createdPayment;
+    if (previousRequest) {
+      if (previousRequest.expiresAt > now) {
+        return previousRequest.response;
+      }
+    }
+
+  const orderCode = /^ORD-\d{8}-(\d+)$/.exec(dto.orderId);
+  if (!orderCode) {
+    throw new NotFoundException('Đơn hàng không tồn tại');
+  }
+
+  const order = await this.prisma.order.findUnique({
+    where: { id: Number(orderCode[1]) },
   });
-} catch (error) {
-  if (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2002'
-  ) {
-    throw new ConflictException('Idempotency key đã được sử dụng');
+  if (!order || this.formatOrderCode(order.id, order.createdAt) !== dto.orderId) {
+    throw new NotFoundException('Đơn hàng không tồn tại');
   }
-  throw error;
-}
-
-if (result.success) {
-  return {
-    status: 'PAID',
-    transactionId: result.transactionId,
-    paidAt: payment.createdAt.toISOString(),
-  };
-}
-
-return {
-  status: 'PAYMENT_FAILED',
-  reason: result.reason,
-  transactionId: null,
-};
+  if (order.status === 'PAID') {
+    throw new ConflictException('Đơn hàng đã ở trạng thái PAID');
   }
+
+  const result = await this.mockPaymentService.charge(
+    order.total,
+    dto.method,
+    mockResultHeader,
+  );
+
+  try {
+    return await this.prisma.$transaction(async (tx) => {
+      const createdPayment = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          idempotencyKey: key,
+          amount: order.total,
+          method: dto.method,
+        },
+      });
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: result.success ? 'PAID' : 'PAYMENT_FAILED' },
+      });
+      if (result.success) {
+        const pointsEarned = Math.floor(order.total / 10000);
+        if (pointsEarned > 0) {
+          await tx.user.update({
+            where: { id: order.userId },
+            data: { loyaltyPoints: { increment: pointsEarned } },
+          });
+        }
+      }
+
+      const response = result.success
+        ? {
+            status: 'PAID',
+            transactionId: result.transactionId,
+            paidAt: createdPayment.createdAt.toISOString(),
+          }
+        : {
+            status: 'PAYMENT_FAILED',
+            reason: result.reason,
+            transactionId: null,
+          };
+
+      await tx.idempotencyRecord.create({
+        data: {
+          key,
+          orderId: order.id,
+          response,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      });
+
+      return response;
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const savedRequest = await this.prisma.idempotencyRecord.findUnique({
+        where: { key },
+      });
+      if (savedRequest && savedRequest.expiresAt > new Date()) {
+        return savedRequest.response;
+      }
+    }
+    throw error;
+  }
+}
 
   private formatOrderCode(id: number, createdAt: Date): string {
 const year = createdAt.getFullYear();
