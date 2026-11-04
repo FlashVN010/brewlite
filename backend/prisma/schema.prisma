@@ -57,6 +57,7 @@ model Order {
   total     Float
   items     OrderItem[]
   payments  Payment[]
+  idempotencyRecords IdempotencyRecord[]
   createdAt DateTime    @default(now())
 }
 
@@ -81,6 +82,16 @@ model Payment {
   method         String
   createdAt      DateTime @default(now())
 }
+
+model IdempotencyRecord {
+  key       String   @id
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  response  Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
 model Promotion {
   id        Int           @id @default(autoincrement())
   code      String        @unique

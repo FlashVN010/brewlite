@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -22,10 +22,14 @@ describe('PaymentsService', () => {
     payment: { create: jest.fn<any>() },
     order: { update: jest.fn<any>() },
     user: { update: jest.fn<any>() },
+    idempotencyRecord: { create: jest.fn<any>() },
   };
 
   const prisma = {
-    payment: { findUnique: jest.fn<any>() },
+    idempotencyRecord: {
+      findUnique: jest.fn<any>(),
+      deleteMany: jest.fn<any>(),
+    },
     order: { findUnique: jest.fn<any>() },
     $transaction: jest.fn<any>(),
   };
@@ -34,11 +38,12 @@ describe('PaymentsService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
-    prisma.payment.findUnique.mockResolvedValue(null);
+    prisma.idempotencyRecord.findUnique.mockResolvedValue(null);
     prisma.order.findUnique.mockResolvedValue(order);
     prisma.$transaction.mockImplementation((callback: any) => callback(tx));
     tx.payment.create.mockResolvedValue({ createdAt: order.createdAt });
     tx.order.update.mockResolvedValue({});
+    tx.idempotencyRecord.create.mockResolvedValue({});
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -93,15 +98,31 @@ describe('PaymentsService', () => {
     expect(mockPaymentService.charge).not.toHaveBeenCalled();
   });
 
-  it('rejects a reused idempotency key without charging', async () => {
-    prisma.payment.findUnique.mockResolvedValue({ id: 1 });
+  it('returns the saved response for a reused idempotency key', async () => {
+    const savedResponse = {
+      status: 'PAID',
+      transactionId: 'TXN-1',
+      paidAt: order.createdAt.toISOString(),
+    };
+    prisma.idempotencyRecord.findUnique.mockResolvedValue({
+      response: savedResponse,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
 
     await expect(
       service.processPayment(
         { orderId: 'ORD-20261027-0012', method: 'CARD' },
         'request-key',
       ),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).resolves.toEqual(savedResponse);
     expect(mockPaymentService.charge).not.toHaveBeenCalled();
+  });
+
+  it('requires the Idempotency-Key header', async () => {
+    await expect(
+      service.processPayment(
+        { orderId: 'ORD-20261027-0012', method: 'CARD' },
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
