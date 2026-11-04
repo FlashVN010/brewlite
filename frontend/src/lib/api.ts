@@ -24,6 +24,13 @@ export interface AuthResponse {
   user: { id: number; email: string };
 }
 
+export interface UserProfile {
+  id: number;
+  email: string;
+  loyaltyPoints: number;
+  createdAt: string;
+}
+
 export interface CreatedOrder {
   orderId: number;
   code: string;
@@ -84,6 +91,7 @@ export async function createOrder(
     toppings: string[];
     quantity: number;
   }>,
+  promoCode?: string,
 ): Promise<CreatedOrder> {
   const res = await fetch(`${API_URL}/orders`, {
     method: 'POST',
@@ -91,9 +99,17 @@ export async function createOrder(
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ items }),
+    body: JSON.stringify({ items, ...(promoCode ? { promoCode } : {}) }),
   });
   return parseResponse<CreatedOrder>(res, 'Không thể tạo đơn hàng');
+}
+
+export async function getMyProfile(token: string): Promise<UserProfile> {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  });
+  return parseResponse<UserProfile>(res, 'Không thể tải thông tin tài khoản');
 }
 
 export async function getMyOrders(token: string): Promise<OrderHistoryEntry[]> {

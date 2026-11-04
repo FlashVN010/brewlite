@@ -9,6 +9,7 @@ import {
   AUTH_TOKEN_KEY,
   createOrder,
   CreatedOrder,
+  getMyProfile,
   payOrder,
 } from '@/lib/api';
 
@@ -24,6 +25,8 @@ export default function CheckoutPage() {
   const [order, setOrder] = useState<CreatedOrder | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'WALLET'>('CARD');
   const [paymentStatus, setPaymentStatus] = useState<'PAID' | null>(null);
+  const [promoCode, setPromoCode] = useState('');
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -52,6 +55,7 @@ export default function CheckoutPage() {
           toppings: item.toppings,
           quantity: item.quantity,
         })),
+        promoCode.trim() || undefined,
       );
       setOrder(createdOrder);
       clearCart();
@@ -75,6 +79,8 @@ export default function CheckoutPage() {
       const result = await payOrder(token, order.code, paymentMethod);
       if (result.status === 'PAID') {
         setPaymentStatus('PAID');
+        const profile = await getMyProfile(token);
+        setLoyaltyPoints(profile.loyaltyPoints);
       } else {
         setError(result.reason || 'Thanh toán không thành công.');
       }
@@ -148,6 +154,20 @@ export default function CheckoutPage() {
               <span>Tạm tính</span>
               <span className="text-amber-700">{formatPrice(totalPrice)}</span>
             </div>
+            <label className="mt-5 block text-sm font-medium text-gray-700">
+              Mã khuyến mãi
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(event) => setPromoCode(event.target.value.toUpperCase())}
+                placeholder="Ví dụ: WELCOME10"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 uppercase outline-none focus:border-amber-600"
+                maxLength={50}
+              />
+              <span className="mt-1 block text-xs font-normal text-gray-500">
+                Mã sẽ được kiểm tra khi bạn xác nhận đơn hàng.
+              </span>
+            </label>
             <button
               type="button"
               onClick={handleCreateOrder}
@@ -178,6 +198,11 @@ export default function CheckoutPage() {
               <p className="mt-3 text-sm text-gray-700">
                 Trạng thái: <strong className="text-green-700">Đã thanh toán</strong>
               </p>
+              {loyaltyPoints !== null && (
+                <p className="mt-3 text-sm font-medium text-amber-800">
+                  Điểm thưởng hiện có: {loyaltyPoints} điểm
+                </p>
+              )}
             </div>
             <p className="mt-5 font-medium text-gray-800">
               Vui lòng tới quầy để lấy nước.
