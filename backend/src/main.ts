@@ -6,8 +6,10 @@ async function bootstrap() {
 const app = await NestFactory.create(AppModule);
 
   // Cho phép frontend (Next.js, cổng 3000) gọi API
-  app.enableCors({ origin: 'http://localhost:3000', credentials: true });
-
+  app.enableCors({
+  origin: process.env.FRONTEND_URL?.split(',').map((u) => u.trim()) ?? 'http://localhost:3000',
+  credentials: true,
+});
   // Validate dữ liệu đầu vào toàn cục (dùng cho Task 6)
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
