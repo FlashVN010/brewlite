@@ -83,6 +83,25 @@ async function main() {
     users.set(savedUser.email, savedUser.id);
   }
 
+  await prisma.promotion.upsert({
+    where: { code: 'WELCOME10' },
+    update: {
+      type: 'PERCENT',
+      value: 10,
+      minOrder: 50000,
+      expiresAt: new Date('2099-12-31T23:59:59.999Z'),
+      active: true,
+    },
+    create: {
+      code: 'WELCOME10',
+      type: 'PERCENT',
+      value: 10,
+      minOrder: 50000,
+      expiresAt: new Date('2099-12-31T23:59:59.999Z'),
+      active: true,
+    },
+  });
+
   const products = new Map<string, { id: number; price: number }>();
   for (const product of productData) {
     const existingProduct = await prisma.product.findFirst({
