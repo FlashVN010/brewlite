@@ -1,0 +1,31 @@
+@startuml use-case-checkout
+left to right direction
+
+actor "Customer" as Customer
+actor "Mock Payment\nGateway" as Gateway
+
+rectangle "UC-01 Checkout" {
+  usecase "Tiến hành thanh toán" as UC_Start
+  usecase "Đăng nhập (nếu cần)" as UC_Login
+  usecase "Chọn phương thức\n(Ví / Thẻ)" as UC_Method
+  usecase "Tạo Order PENDING" as UC_Create
+  usecase "Gọi thanh toán\n(idempotent)" as UC_Pay
+  usecase "Cập nhật PAID +\nloyalty" as UC_Paid
+  usecase "Hiển thị xác nhận" as UC_Confirm
+
+  usecase "Thanh toán thất bại\n/ retry" as UC_Fail
+  usecase "Hết hàng /\norder không hợp lệ" as UC_Ex
+}
+
+Customer --> UC_Start
+UC_Start ..> UC_Login : «extend»\n(chưa đăng nhập)
+UC_Start --> UC_Method
+UC_Method --> UC_Create
+UC_Create --> UC_Pay
+UC_Pay --> Gateway
+UC_Pay --> UC_Paid : success
+UC_Pay --> UC_Fail : failed
+UC_Paid --> UC_Confirm
+UC_Create ..> UC_Ex : «extend»\n(stock / validation)
+
+@enduml

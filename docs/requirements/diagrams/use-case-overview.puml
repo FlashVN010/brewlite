@@ -1,0 +1,36 @@
+@startuml use-case-overview
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Customer" as Customer
+actor "Barista" as Barista
+actor "Mock Payment\nGateway" as Gateway
+actor "Product Owner" as PO
+
+rectangle BrewLite {
+  usecase "Xem menu" as UC_Menu
+  usecase "Xem chi tiết &\nchọn size/topping" as UC_Detail
+  usecase "Quản lý giỏ hàng" as UC_Cart
+  usecase "Đăng ký / Đăng nhập" as UC_Auth
+  usecase "Tạo đơn hàng" as UC_Order
+  usecase "Thanh toán\nkhông tiền mặt" as UC_Pay
+  usecase "Xem xác nhận &\nlịch sử đơn" as UC_History
+  usecase "Cập nhật trạng thái\npha chế" as UC_Status
+}
+
+Customer --> UC_Menu
+Customer --> UC_Detail
+Customer --> UC_Cart
+Customer --> UC_Auth
+Customer --> UC_Order
+Customer --> UC_Pay
+Customer --> UC_History
+
+UC_Pay ..> Gateway : «include»
+UC_Order ..> UC_Auth : «include»
+UC_Pay ..> UC_Order : «include»
+
+Barista --> UC_Status
+PO --> UC_Menu : ưu tiên backlog
+
+@enduml
