@@ -179,3 +179,38 @@ function findProductInCache(id: number): Product | null {
 
   return null;
 }
+
+export type VnpayBankCode = 'VNPAYQR' | 'VNBANK' | 'INTCARD';
+
+export async function createVnpayPayment(
+  token: string,
+  orderCode: string,
+  bankCode?: VnpayBankCode,
+): Promise<{ paymentUrl: string }> {
+  const res = await fetch(`${API_URL}/payments/vnpay/create`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ orderId: orderCode, ...(bankCode ? { bankCode } : {}) }),
+  });
+  return parseResponse(res, 'Không thể tạo thanh toán VNPAY');
+}
+
+export interface VnpayReturnResult {
+  valid: boolean;
+  success: boolean;
+  orderCode: string | null;
+  responseCode: string | null;
+  message: string;
+}
+
+/** Gửi nguyên query string VNPAY trả về cho backend kiểm tra chữ ký. */
+export async function verifyVnpayReturn(search: string): Promise<VnpayReturnResult> {
+  const query = search.startsWith('?') ? search.slice(1) : search;
+  const res = await fetch(`${API_URL}/payments/vnpay/return?${query}`, {
+    cache: 'no-store',
+  });
+  return parseResponse(res, 'Không thể kiểm tra kết quả thanh toán');
+}
