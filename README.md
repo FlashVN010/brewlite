@@ -214,17 +214,10 @@ Rồi dùng `localhost:5433` trong `DATABASE_URL` khi chạy lệnh trên máy. 
 - Mỗi task một nhánh `feature/task-<số>-<mô-tả-ngắn>`, ví dụ `feature/task-1-init-monorepo`, tạo từ `develop` và mở PR vào `develop`.
 - Commit theo Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`.
 - Công việc theo dõi bằng GitHub Issues và Project Board (Backlog / Sprint Backlog / In Progress / In Review / Done).
-- Labels: `frontend`, `backend`, `docs`, `setup`, `auth`, `payment`, `bug`, `sprint1`, `sprint2`, `sprint3`.
+- Labels đang sử dụng: `documentation`, `frontend`, `backend`, `payment`, `setup`, `ci-cd`, `testing`, `architecture`, `deployment`, `diagram`, `requirements`, `a2-task1` đến `a2-task5`.
 - Không commit: `.env`, `.env.local`, `node_modules`, `.next`, `dist`.
 
 ## Thành viên nhóm
 
-| STT | Họ tên | Vai trò |
-|---|---|---|
-| 1 | (điền tên) | Product Owner / BA |
-| 2 | Ngọc Đại | Scrum Master / QA / DevOps |
-| 3 | (điền tên) | Backend Lead |
-| 4 | (điền tên) | Backend Auth / Payment |
-| 5 | (điền tên) | Frontend Lead |
-| 6 | (điền tên) | Frontend UI/UX |
-| 7 | Hoàng Duy | Fullstack / Integration |
+Danh sách thành viên và người đóng góp được GitHub cập nhật tại trang
+[Contributors](https://github.com/FlashVN010/brewlite/graphs/contributors).
