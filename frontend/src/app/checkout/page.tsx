@@ -9,9 +9,12 @@ import {
   AUTH_TOKEN_KEY,
   createOrder,
   CreatedOrder,
+  createVnpayPayment,
   getMyProfile,
   payOrder,
 } from '@/lib/api';
+
+type PaymentMethod = 'VNPAY' | 'CARD' | 'WALLET';
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat('vi-VN').format(price) + 'đ';
@@ -23,7 +26,7 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((state) => state.clearCart);
   const [token, setToken] = useState('');
   const [order, setOrder] = useState<CreatedOrder | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'WALLET'>('CARD');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('VNPAY');
   const [paymentStatus, setPaymentStatus] = useState<'PAID' | null>(null);
   const [promoCode, setPromoCode] = useState('');
   const [loyaltyPoints, setLoyaltyPoints] = useState<number | null>(null);
@@ -76,6 +79,13 @@ export default function CheckoutPage() {
     setPaymentStatus(null);
     setSubmitting(true);
     try {
+      if (paymentMethod === 'VNPAY') {
+        const { paymentUrl } = await createVnpayPayment(token, order.code);
+        // Chuyển sang cổng VNPAY; kết quả sẽ hiện ở /checkout/vnpay-return
+        window.location.href = paymentUrl;
+        return;
+      }
+
       const result = await payOrder(token, order.code, paymentMethod);
       if (result.status === 'PAID') {
         setPaymentStatus('PAID');
@@ -229,21 +239,33 @@ export default function CheckoutPage() {
               <select
                 value={paymentMethod}
                 onChange={(event) =>
-                  setPaymentMethod(event.target.value as 'CARD' | 'WALLET')
+                  setPaymentMethod(event.target.value as PaymentMethod)
                 }
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
               >
-                <option value="CARD">Thẻ</option>
-                <option value="WALLET">Ví</option>
+                <option value="VNPAY">VNPAY (ATM, QR, thẻ quốc tế)</option>
+                <option value="CARD">Thẻ (giả lập)</option>
+                <option value="WALLET">Ví (giả lập)</option>
               </select>
             </label>
+            {paymentMethod === 'VNPAY' && (
+              <p className="text-xs text-gray-500">
+                Bạn sẽ được chuyển sang cổng thanh toán VNPAY để hoàn tất.
+              </p>
+            )}
             <button
               type="button"
               onClick={handlePayment}
               disabled={submitting}
               className="w-full rounded-lg bg-amber-600 py-3 font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
             >
-              {submitting ? 'Đang thanh toán...' : 'Thanh toán'}
+              {submitting
+                ? paymentMethod === 'VNPAY'
+                  ? 'Đang chuyển sang VNPAY...'
+                  : 'Đang thanh toán...'
+                : paymentMethod === 'VNPAY'
+                  ? 'Thanh toán qua VNPAY'
+                  : 'Thanh toán'}
             </button>
           </div>
         )}
